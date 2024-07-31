@@ -1,0 +1,21 @@
+- all
+- get (get_by_id)
+- filter (where) -> incl. 'like'
+- get_fields?
+- order_by
+- then_by?
+- limit
+- get_distinct
+- join (left)
+
+- update
+- delete
+
+- extract endpoint for raw sql query => db.execute(sql, params, *args, **kwargs)?
+- filter => sqlite3 raises error if invalid columns are selected
+- use <, >, !=, 'like' in where clauses
+- support filter by nested object fields -> book's author's name
+- add ManyToOne, ManyToMany
+- fix adding the final semicolon for 'where' queries
+
+NB: table supports both public attributes and _data used for loew level sql operations

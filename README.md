@@ -1,1 +1,3 @@
-# erelim
+# Erelim
+
+Simple ORM for sqlite3
