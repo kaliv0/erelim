@@ -117,6 +117,7 @@ def test_get_book_by_id_with_nested_data(db, Author, Book):
 
     book_from_db = db.get_by_id(Book, id=1)
     assert book_from_db.title == "Building an ORM"
+    assert book_from_db.published is False
     assert book_from_db.author.name == "John Doe"
     assert book_from_db.author.id == 1
 
@@ -173,7 +174,7 @@ def test_get_book_filter_alternative(db, Author, Novel):
     assert book_from_db1.id == 3
     assert book_from_db1.title == "Scoring Goals"
     assert book_from_db1.year == 1907
-    assert book_from_db1.published == 1  # TODO: transform 1 to True
+    assert book_from_db1.published is True  # TODO: transform 1 to True
     assert book_from_db1.author.name == "Arash Kun"
     assert book_from_db1.author.id == 2
 
@@ -181,7 +182,7 @@ def test_get_book_filter_alternative(db, Author, Novel):
     assert book_from_db2.id == 2
     assert book_from_db2.title == "Building an ORM"
     assert book_from_db2.year == 1907
-    assert book_from_db2.published == 1
+    assert book_from_db2.published is True
     assert book_from_db2.author.name == "John Doe"
     assert book_from_db2.author.id == 1
 

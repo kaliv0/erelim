@@ -7,6 +7,7 @@
 - limit
 - get_distinct
 - join (left)
+- offset
 
 - update
 - delete
@@ -19,3 +20,12 @@
 - fix adding the final semicolon for 'where' queries
 
 NB: table supports both public attributes and _data used for loew level sql operations
+
+-----------------------------
+# TODO: refactor with cursor.close()
+# cursor = self.conn.cursor()
+# try:
+#     cursor.execute(table._get_create_sql())
+#     self.conn.commit()
+# finally:
+#     cursor.close()

@@ -21,13 +21,6 @@ class Database:
         return [x[0] for x in self.conn.execute(SELECT_TABLES_SQL).fetchall()]  # FIXME
 
     def create(self, table):
-        # TODO: refactor with cursor.close()
-        # cursor = self.conn.cursor()
-        # try:
-        #     cursor.execute(table._get_create_sql())
-        #     self.conn.commit()
-        # finally:
-        #     cursor.close()
         self.conn.execute(table._get_create_sql())
 
     def save(self, instance):
@@ -39,50 +32,23 @@ class Database:
 
     def get_all(self, table):
         sql, fields = table._get_select_all_sql()
-        result = []
-        for row in self.conn.execute(sql).fetchall():
-            instance = table()
-            for field, value in zip(fields, row):
-                if field.endswith("_id"):
-                    field = field[:-3]
-                    fk = getattr(table, field)
-                    value = self.get_by_id(fk.table, id=value)
-                setattr(instance, field, value)
-            result.append(instance)
-        return result
+        return [
+            self._build_instance(fields, row, table) for row in self.conn.execute(sql).fetchall()
+        ]
 
     def get_by_id(self, table, id):
         sql, fields, params = table._get_select_where_sql(id=id)
         row = self.conn.execute(sql, params).fetchone()
-        if row is None:
-            return row
-
-        instance = table()
-        for field, value in zip(fields, row):
-            if field.endswith("_id"):
-                field = field[:-3]
-                fk = getattr(table, field)
-                value = self.get_by_id(fk.table, id=value)
-            setattr(instance, field, value)
-        return instance
+        if row:
+            return self._build_instance(fields, row, table)
+        return None
 
     def filter(self, table, **kwargs):
         sql, fields, params = table._get_select_where_sql(**kwargs)
         rows = self.conn.execute(sql, params).fetchall()
-        if len(rows) == 0:
-            return rows
-
-        result = []
-        for row in rows:
-            instance = table()
-            for field, value in zip(fields, row):
-                if field.endswith("_id"):
-                    field = field[:-3]
-                    fk = getattr(table, field)
-                    value = self.get_by_id(fk.table, id=value)
-                setattr(instance, field, value)
-            result.append(instance)
-        return result
+        if rows:
+            return [self._build_instance(fields, row, table) for row in rows]
+        return []
 
     def update(self, instance):
         sql, values = instance._get_update_sql()
@@ -96,6 +62,18 @@ class Database:
 
     def get(self, table):
         return QueryObject(db=self, table=table)
+
+    def _build_instance(self, fields, row, table):
+        instance = table()
+        for field, value in zip(fields, row):
+            if field.endswith("_id"):
+                field = field[:-3]
+                fk = getattr(table, field)
+                value = self.get_by_id(fk.table, id=value)
+            elif (table_field := getattr(table, field, None)) and table_field.type is bool:
+                value = value == 1
+            setattr(instance, field, value)
+        return instance
 
 
 ######################################
@@ -153,28 +131,6 @@ class Table:
         )
         return sql, values
 
-    # @classmethod
-    # def _get_select_where_sql(cls, **kwargs):
-    #     SELECT_WHERE_SQL = "SELECT {fields} FROM {name}{where_clause};"
-    #     fields = ["id"]
-    #     for name, field in inspect.getmembers(cls):
-    #         if isinstance(field, Column):
-    #             fields.append(name)
-    #         elif isinstance(field, ForeignKey):
-    #             fields.append(f"{name}_id")
-    #
-    #     where_clause = ""
-    #     if kwargs:
-    #         where_clause = " WHERE " + " AND ".join([f"{key} = ?" for key in kwargs])
-    #
-    #     sql = SELECT_WHERE_SQL.format(
-    #         name=cls.__name__.lower(),
-    #         fields=", ".join(fields),
-    #         where_clause=where_clause,
-    #     )
-    #     params = list(kwargs.values())
-    #     return sql, fields, params
-
     @classmethod
     def _get_select_where_sql(cls, **kwargs):
         SELECT_WHERE_SQL = "SELECT {fields} FROM {name}{where_clause}"
@@ -200,7 +156,6 @@ class Table:
     @classmethod
     def _get_select_all_sql(cls):
         SELECT_ALL_SQL = "SELECT * FROM {name}"
-        # SELECT_ALL_SQL = "SELECT {fields} FROM {name};"
         fields = ["id"]
         for name, field in inspect.getmembers(cls):
             if isinstance(field, Column):
@@ -208,7 +163,6 @@ class Table:
             elif isinstance(field, ForeignKey):
                 fields.append(f"{name}_id")
 
-        # sql = SELECT_ALL_SQL.format(name=cls.__name__.lower(), fields=", ".join(fields))
         sql = SELECT_ALL_SQL.format(name=cls.__name__.lower())
         return sql, fields
 
@@ -261,7 +215,6 @@ class QueryObject:
         # pointer to db instance to make possible calling "execute" method on queryObject ???
         self.db = db
         self.table = table
-        self.name = table.__name__.lower()  # ???
         self.order_dir = " ASC"
         self.order_criteria = None
         self.filter_data = None
@@ -293,20 +246,6 @@ class QueryObject:
             params.append(self.limit_count)
 
         rows = self.db.conn.execute(sql, params).fetchall()
-        if len(rows) == 0:
-            return rows
-
-        result = []
-        for row in rows:
-            instance = type(self.table.__name__, (), {})  # new instance of type self.table
-            for field, value in zip(fields, row):
-                if field.endswith("_id"):
-                    field = field[:-3]
-                    fk = getattr(self.table, field)
-                    value = self.db.get_by_id(fk.table, id=value)
-                # elif getattr(self.table, field, None):
-                #     if type(getattr(self.table, field)) is bool:
-                #         value = True
-                setattr(instance, field, value)
-            result.append(instance)
-        return result
+        if rows:
+            return [self.db._build_instance(fields, row, self.table) for row in rows]
+        return []
