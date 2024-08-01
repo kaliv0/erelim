@@ -31,20 +31,21 @@ class Database:
         self.conn.commit()
 
     def get_all(self, table):
-        sql, fields = table._get_select_all_sql()
+        # sql, fields = table._get_select_all_sql()
+        sql, fields, _ = table._get_select_sql()
         return [
             self._build_instance(fields, row, table) for row in self.conn.execute(sql).fetchall()
         ]
 
     def get_by_id(self, table, id):
-        sql, fields, params = table._get_select_where_sql(id=id)
+        sql, fields, params = table._get_select_sql(id=id)
         row = self.conn.execute(sql, params).fetchone()
         if row:
             return self._build_instance(fields, row, table)
         return None
 
     def filter(self, table, **kwargs):
-        sql, fields, params = table._get_select_where_sql(**kwargs)
+        sql, fields, params = table._get_select_sql(**kwargs)
         rows = self.conn.execute(sql, params).fetchall()
         if rows:
             return [self._build_instance(fields, row, table) for row in rows]
@@ -132,8 +133,8 @@ class Table:
         return sql, values
 
     @classmethod
-    def _get_select_where_sql(cls, **kwargs):
-        SELECT_WHERE_SQL = "SELECT {fields} FROM {name}{where_clause}"
+    def _get_select_sql(cls, **kwargs):
+        SELECT_WHERE_SQL = "SELECT * FROM {name}{where_clause}"
         fields = ["id"]
         for name, field in inspect.getmembers(cls):
             if isinstance(field, Column):
@@ -141,30 +142,14 @@ class Table:
             elif isinstance(field, ForeignKey):
                 fields.append(f"{name}_id")
 
-        where_clause = ""
-        if kwargs:
-            where_clause = " WHERE " + " AND ".join([f"{key} = ?" for key in kwargs])
+        where_clause = " WHERE " + " AND ".join([f"{key} = ?" for key in kwargs]) if kwargs else ""
 
         sql = SELECT_WHERE_SQL.format(
             name=cls.__name__.lower(),
-            fields=", ".join(fields),
             where_clause=where_clause,
         )
         params = list(kwargs.values())
         return sql, fields, params
-
-    @classmethod
-    def _get_select_all_sql(cls):
-        SELECT_ALL_SQL = "SELECT * FROM {name}"
-        fields = ["id"]
-        for name, field in inspect.getmembers(cls):
-            if isinstance(field, Column):
-                fields.append(name)
-            elif isinstance(field, ForeignKey):
-                fields.append(f"{name}_id")
-
-        sql = SELECT_ALL_SQL.format(name=cls.__name__.lower())
-        return sql, fields
 
     def _get_update_sql(self):
         UPDATE_SQL = "UPDATE {name} SET {fields} WHERE id = ?"
@@ -213,39 +198,38 @@ class ForeignKey:
 class QueryObject:
     def __init__(self, db, table):
         # pointer to db instance to make possible calling "execute" method on queryObject ???
-        self.db = db
-        self.table = table
-        self.order_dir = " ASC"
-        self.order_criteria = None
-        self.filter_data = None
-        self.limit_count = None
+        self._db = db
+        self._table = table
+        self._order_dir = " ASC"
+        self._order_criteria = None
+        self._filter_data = None
+        self._limit_count = None
 
     def where(self, **kwargs):
-        self.filter_data = kwargs
+        self._filter_data = kwargs
         return self
 
     def order_by(self, criteria, desc=False):
-        self.order_criteria = criteria
+        self._order_criteria = criteria
         if desc:
-            self.order_dir = " DESC"
+            self._order_dir = " DESC"
         return self
 
     def limit(self, count=None):
         if count is not None:
-            self.limit_count = count
+            self._limit_count = count
         return self
 
     def execute(self):
-        # similar db.filter
-        sql, fields, params = self.table._get_select_where_sql(**self.filter_data)
-        if self.order_criteria:
-            sql += f" ORDER BY {self.order_criteria}"  # TODO: parametrize order_criteria -> bug in sqlite!?
-            sql += self.order_dir
-        if self.limit_count:
+        sql, fields, params = self._table._get_select_sql(**self._filter_data)
+        if self._order_criteria:
+            sql += f" ORDER BY {self._order_criteria}"  # TODO: parametrize order_criteria
+            sql += self._order_dir
+        if self._limit_count:
             sql += " LIMIT ?"
-            params.append(self.limit_count)
+            params.append(self._limit_count)
 
-        rows = self.db.conn.execute(sql, params).fetchall()
+        rows = self._db.conn.execute(sql, params).fetchall()
         if rows:
-            return [self.db._build_instance(fields, row, self.table) for row in rows]
+            return [self._db._build_instance(fields, row, self._table) for row in rows]
         return []

@@ -1,5 +1,7 @@
 import sqlite3
 
+import pytest
+
 
 def test_create_db(db):
     assert isinstance(db.conn, sqlite3.Connection)
@@ -73,11 +75,7 @@ def test_get_all_authors(db, Author):
 
     authors = db.get_all(Author)
 
-    assert Author._get_select_all_sql() == (
-        # "SELECT id, age, name FROM author",
-        "SELECT * FROM author",
-        ["id", "age", "name"],
-    )
+    assert Author._get_select_sql() == ("SELECT * FROM author", ["id", "age", "name"], [])
     assert len(authors) == 2
     assert type(authors[0]) is Author
     assert {a.age for a in authors} == {23, 43}
@@ -92,8 +90,8 @@ def test_get_author_by_id(db, Author):
     # case_0 => valid record
     john_from_db = db.get_by_id(Author, 1)
 
-    assert Author._get_select_where_sql(id=1) == (
-        "SELECT id, age, name FROM author WHERE id = ?",
+    assert Author._get_select_sql(id=1) == (
+        "SELECT * FROM author WHERE id = ?",
         ["id", "age", "name"],
         [1],
     )
@@ -145,10 +143,13 @@ def test_get_book_filter(db, Author, Book):
     invalid_books = db.filter(Book, title="FizzBuzz")
     assert invalid_books == []
 
-    # TODO: case_2 => raises exception if invalid columns are given
+    # case_2 => raises exception if invalid columns are given
+    with pytest.raises(Exception) as e:
+        db.filter(Book, foo="bar")
+    assert str(e.value) == "no such column: foo"
 
 
-def test_get_book_filter_alternative(db, Author, Novel):
+def test_get_book_chained_query(db, Author, Novel, Book):
     db.create(Author)
     db.create(Novel)
     john = Author(name="John Doe", age=43)
@@ -187,8 +188,13 @@ def test_get_book_filter_alternative(db, Author, Novel):
     assert book_from_db2.author.id == 1
 
     # case_1 => non-existent records
-    # invalid_books = db.filter(Book, title="FizzBuzz")
-    # assert invalid_books == []
+    invalid_books = db.get(Novel).where(title="FizzBuzz").execute()
+    assert invalid_books == []
+
+    # case_2 => raises exception if invalid columns are given
+    with pytest.raises(Exception) as e:
+        db.get(Novel).where(foo="bar").execute()
+    assert str(e.value) == "no such column: foo"
 
 
 def test_get_all_books_nested_data(db, Author, Book):
