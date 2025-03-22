@@ -1,8 +1,8 @@
 import os
 import pytest
 
-from erelim import Database, Table, Column, ForeignKey
-
+from erelim.db import Database
+from erelim.table import Table, Column, ForeignKey
 
 DB_PATH = "./tests/resources/test.db"
 
@@ -11,8 +11,7 @@ DB_PATH = "./tests/resources/test.db"
 def db():
     if os.path.exists(DB_PATH):
         os.remove(DB_PATH)
-    db = Database(DB_PATH)
-    return db
+    return Database(DB_PATH)
 
 
 @pytest.fixture

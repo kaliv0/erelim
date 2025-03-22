@@ -23,7 +23,7 @@ jobs:
       run: poetry install --with dev
     - name: Run lint
       run:  |
-        poetry run ruff check --fix
-        poetry run ruff format
+        poetry run ruff check --fix .
+        poetry run ruff format 110 .
     - name: Run tests
       run: poetry run pytest -v

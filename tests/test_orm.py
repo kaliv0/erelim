@@ -1,10 +1,8 @@
-import sqlite3
-
 import pytest
 
 
 def test_create_db(db):
-    assert isinstance(db.conn, sqlite3.Connection)
+    assert db.path == "./tests/resources/test.db"
     assert db.tables == []
 
 
@@ -21,11 +19,11 @@ def test_create_tables(db, Author, Book):
     db.create(Book)
 
     assert (
-        Author._get_create_sql()
+        Author.get_create_sql()
         == "CREATE TABLE IF NOT EXISTS author (id INTEGER PRIMARY KEY AUTOINCREMENT, age INTEGER, name TEXT)"
     )
     assert (
-        Book._get_create_sql()
+        Book.get_create_sql()
         == "CREATE TABLE IF NOT EXISTS book (id INTEGER PRIMARY KEY AUTOINCREMENT, author_id INTEGER, published INTEGER, title TEXT)"
     )
     for table in ("author", "book"):
@@ -47,7 +45,7 @@ def test_save_author_instances(db, Author):
 
     john = Author(name="John Doe", age=23)
     db.save(john)
-    assert john._get_insert_sql() == (
+    assert john.get_insert_sql() == (
         "INSERT INTO author (age, name) VALUES (?, ?)",
         [23, "John Doe"],
     )
@@ -75,7 +73,7 @@ def test_get_all_authors(db, Author):
 
     authors = db.get_all(Author)
 
-    assert Author._get_select_sql() == ("SELECT * FROM author", ["id", "age", "name"], [])
+    assert Author.get_select_sql() == ("SELECT id, age, name FROM author", ["id", "age", "name"], [])
     assert len(authors) == 2
     assert type(authors[0]) is Author
     assert {a.age for a in authors} == {23, 43}
@@ -90,8 +88,8 @@ def test_get_author_by_id(db, Author):
     # case_0 => valid record
     john_from_db = db.get_by_id(Author, 1)
 
-    assert Author._get_select_sql(id=1) == (
-        "SELECT * FROM author WHERE id = ?",
+    assert Author.get_select_sql(id=1) == (
+        "SELECT id, age, name FROM author WHERE id = ?",
         ["id", "age", "name"],
         [1],
     )
@@ -113,7 +111,7 @@ def test_get_book_by_id_with_nested_data(db, Author, Book):
     db.save(john)
     db.save(book)
 
-    book_from_db = db.get_by_id(Book, id=1)
+    book_from_db = db.get_by_id(Book, id_=1)
     assert book_from_db.title == "Building an ORM"
     assert book_from_db.published is False
     assert book_from_db.author.name == "John Doe"
@@ -223,7 +221,7 @@ def test_update_author(db, Author):
     john.name = "John Wick"
     db.update(john)
 
-    john_from_db = db.get_by_id(Author, id=john.id)
+    john_from_db = db.get_by_id(Author, id_=john.id)
     assert john_from_db.age == 43
     assert john_from_db.name == "John Wick"
 
@@ -233,5 +231,5 @@ def test_delete_author(db, Author):
     john = Author(name="John Doe", age=23)
     db.save(john)
 
-    db.delete(Author, id=1)
+    db.delete(Author, id_=1)
     assert db.get_by_id(Author, 1) is None

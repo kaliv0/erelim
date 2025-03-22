@@ -2,27 +2,27 @@
 - get_fields?
 - (order_by) then_by?
 - get_distinct
-- join (left)
+- join
 - offset
+- aggregate?
+
+- delete by {where_clause} -> currently only by id
 
 - extract endpoint for raw sql query => db.run_query(sql, params, *args, **kwargs)?
 - use <, >, !=, 'like' in where clauses
 - support filter by nested object fields -> book's author's name
 - add ManyToOne, ManyToMany
 
------------------------------
-# TODO: refactor with cursor.close()
-# cursor = self.conn.cursor()
-# try:
-#     cursor.execute(table._get_create_sql())
-#     self.conn.commit()
-# finally:
-#     cursor.close()
+- don't hardcode 'id' in Table -> support other PK's incl. composite keys
 
-or context manager for conn?
+- read table name from __table__ attr in class
 
+- escape fields with [] inside queries?
+- handle bool -> sqlite reads TRUE/FALSE as int aliases
 ----------------------------
+- support create and drop tables/ db?
 
-- should we use 'select {fields}' instead of 'select *'?
+- add type_hints
+
 - remove 'filter'
 - add datetime types?
